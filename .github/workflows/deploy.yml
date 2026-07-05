@@ -50,5 +50,5 @@ jobs:
           envs: GHCR_TOKEN,ACTOR
           script: |
             echo "$GHCR_TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
-            docker compose -f ~/kfit/docker-compose.yml pull --ignore-buildable backend
-            docker compose -f ~/kfit/docker-compose.yml up -d --no-deps backend
+            docker pull ghcr.io/amirmghanem/kfit-backend:latest
+            docker compose -f ~/kfit/docker-compose.yml up -d --no-deps --force-recreate backend
