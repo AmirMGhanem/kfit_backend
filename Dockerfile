@@ -11,7 +11,9 @@ RUN pip install --no-cache-dir \
     "asyncpg>=0.30.0" \
     "pydantic>=2.11.0" \
     "pydantic-settings>=2.9.0" \
-    "boto3>=1.34.0"
+    "boto3>=1.34.0" \
+    "pyjwt>=2.8.0" \
+    "passlib[bcrypt]>=1.7.4"
 
 COPY . .
 

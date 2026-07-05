@@ -6,6 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.core.storage import ensure_bucket
+from app.routers.auth import router as auth_router
+from app.routers.consultants import router as consultants_router
 from app.routers.submissions import router as submissions_router
 from app.routers.uploads import router as uploads_router
 
@@ -26,6 +28,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth_router, prefix="/auth")
+app.include_router(consultants_router, prefix="/consultants")
 app.include_router(uploads_router)
 app.include_router(submissions_router)
 

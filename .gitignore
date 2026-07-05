@@ -17,9 +17,8 @@ htmlcov/
 .env
 !.env.example
 
-# Alembic
-alembic/versions/*.py
-!alembic/versions/.gitkeep
+# Alembic — track migration files
+alembic/versions/__pycache__/
 
 # OS
 .DS_Store
