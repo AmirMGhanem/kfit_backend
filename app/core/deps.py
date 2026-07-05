@@ -32,3 +32,10 @@ async def require_admin(user: User = Depends(get_current_user)) -> User:
     if user.role != "admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin required")
     return user
+
+
+async def require_staff(user: User = Depends(get_current_user)) -> User:
+    """Allow both admin and consultant roles."""
+    if user.role not in ("admin", "consultant"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Staff access required")
+    return user

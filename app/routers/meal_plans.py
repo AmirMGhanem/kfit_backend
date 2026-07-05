@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
-from app.core.deps import require_admin
+from app.core.deps import require_staff
 from app.models.meal_plan import MealPlan
 
 router = APIRouter(prefix="/meal-plans", tags=["meal-plans"])
@@ -27,7 +27,7 @@ class MealPlanOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
-@router.get("/", dependencies=[Depends(require_admin)])
+@router.get("/", dependencies=[Depends(require_staff)])
 async def list_meal_plans(
     session: AsyncSession = Depends(get_session),
 ) -> list[MealPlanOut]:

@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
-from app.core.deps import require_admin
+from app.core.deps import require_staff
 from app.models.calculation import Calculation
 
 router = APIRouter(prefix="/calculations", tags=["calculations"])
@@ -28,7 +28,7 @@ class CalculationOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
-@router.get("/", dependencies=[Depends(require_admin)])
+@router.get("/", dependencies=[Depends(require_staff)])
 async def list_calculations(
     session: AsyncSession = Depends(get_session),
 ) -> list[CalculationOut]:
