@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Kfit — Entity Relationship Diagram</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #0d1117;
+  color: #c9d1d9;
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+  min-height: 100vh;
+  padding: 36px 32px 64px;
+}
+.page-title { font-size: 20px; font-weight: 700; color: #f0f6fc; letter-spacing: -0.01em; margin-bottom: 4px; }
+.page-sub   { font-size: 12px; color: #8b949e; margin-bottom: 28px; }
+.page-sub b { color: #79b8ff; font-weight: 400; }
+
+.erd-scroll { overflow: auto; padding-bottom: 16px; }
+#erd { position: relative; width: 720px; height: 560px; }
+#arrows {
+  position: absolute; top: 0; left: 0;
+  width: 720px; height: 560px;
+  pointer-events: none; z-index: 0; overflow: visible;
+}
+
+.entity {
+  position: absolute;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.55);
+  z-index: 1;
+}
+.ent-head {
+  display: flex; align-items: center; gap: 9px;
+  background: #1c2128;
+  border-bottom: 2px solid #1f6feb;
+  padding: 9px 14px;
+  font-size: 11.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.1em; color: #e6edf3;
+  white-space: nowrap;
+}
+.ent-dot { width: 8px; height: 8px; border-radius: 50%; background: #388bfd; flex-shrink: 0; }
+
+.cr {
+  display: flex; align-items: center;
+  padding: 4px 12px 4px 10px; font-size: 11px;
+  border-bottom: 1px solid rgba(48,54,61,0.55);
+  gap: 7px; min-height: 27px;
+}
+.cr:last-child { border-bottom: none; }
+.cr:nth-child(even) { background: rgba(255,255,255,0.017); }
+
+.b { font-size: 9px; font-weight: 700; padding: 2px 5px; border-radius: 3px; min-width: 26px; text-align: center; flex-shrink: 0; letter-spacing: 0.04em; }
+.pk { background: rgba(210,80,12,0.18);  color: #f0883e; border: 1px solid rgba(240,136,62,0.3); }
+.fk { background: rgba(31,111,235,0.18); color: #79b8ff; border: 1px solid rgba(31,111,235,0.35); }
+.uq { background: rgba(46,160,67,0.15);  color: #7ee787; border: 1px solid rgba(46,160,67,0.3); }
+.ix { background: rgba(139,148,158,0.1); color: #8b949e; border: 1px solid rgba(139,148,158,0.2); }
+.bk { min-width: 26px; visibility: hidden; }
+
+.cn { flex: 1; color: #e6edf3; white-space: nowrap; }
+.ct { color: #6e7681; font-size: 10px; white-space: nowrap; padding-left: 4px; }
+
+.legend {
+  display: flex; flex-wrap: wrap; gap: 18px;
+  margin-top: 28px; padding: 14px 20px;
+  background: #161b22; border: 1px solid #30363d; border-radius: 6px;
+  width: fit-content; font-size: 11px; color: #8b949e;
+}
+.leg { display: flex; align-items: center; gap: 8px; }
+</style>
+</head>
+<body>
+
+<div class="page-title">Kfit — Entity Relationship Diagram</div>
+<p class="page-sub">PostgreSQL schema &nbsp;·&nbsp; <b>v0.3</b> &nbsp;·&nbsp; 2026-06-08 &nbsp;·&nbsp; 2 tables · 3 enum types</p>
+
+<div class="erd-scroll">
+<div id="erd">
+<svg id="arrows"></svg>
+
+<!-- ══════════════ CLIENTS ══════════════ -->
+<div class="entity" id="t-clients" style="left:80px;top:40px;width:290px">
+  <div class="ent-head"><span class="ent-dot"></span>clients</div>
+  <div class="cr"><span class="b pk">PK</span><span class="cn">id</span><span class="ct">uuid · gen_random_uuid()</span></div>
+  <div class="cr"><span class="b bk"></span><span class="cn">full_name</span><span class="ct">varchar NOT NULL</span></div>
+  <div class="cr"><span class="b ix">IX</span><span class="cn">email</span><span class="ct">varchar NULL</span></div>
+  <div class="cr"><span class="b bk"></span><span class="cn">phone</span><span class="ct">varchar NULL</span></div>
+  <div class="cr"><span class="b bk"></span><span class="cn">date_of_birth</span><span class="ct">date NULL</span></div>
+  <div class="cr"><span class="b bk"></span><span class="cn">gender</span><span class="ct">gender · male|female|other</span></div>
+  <div class="cr"><span class="b bk"></span><span class="cn">status</span><span class="ct">clientstatus · lead|onboarding|…</span></div>
+  <div class="cr"><span class="b bk"></span><span class="cn">source</span><span class="ct">varchar NULL</span></div>
+  <div class="cr"><span class="b bk"></span><span class="cn">created_at</span><span class="ct">timestamptz ← now()</span></div>
+  <div class="cr"><span class="b bk"></span><span class="cn">updated_at</span><span class="ct">timestamptz onupdate</span></div>
+</div>
+
+<!-- ══════════════ SUBMISSIONS ══════════════ -->
+<div class="entity" id="t-sub" style="left:80px;top:380px;width:290px">
+  <div class="ent-head"><span class="ent-dot"></span>submissions</div>
+  <div class="cr"><span class="b pk">PK</span><span class="cn">id</span><span class="ct">uuid · gen_random_uuid()</span></div>
+  <div class="cr"><span class="b fk">FK</span><span class="cn" style="color:#8b949e">client_id</span><span class="ct">uuid → clients NULL</span></div>
+  <div class="cr"><span class="b bk"></span><span class="cn">type</span><span class="ct">submissiontype · onboarding</span></div>
+  <div class="cr"><span class="b bk"></span><span class="cn">payload</span><span class="ct">jsonb NOT NULL</span></div>
+  <div class="cr"><span class="b bk"></span><span class="cn">submitted_at</span><span class="ct">timestamptz ← now()</span></div>
+</div>
+
+</div>
+</div>
+
+<div class="legend">
+  <div class="leg"><span class="b pk">PK</span> Primary key</div>
+  <div class="leg"><span class="b fk">FK</span> Foreign key</div>
+  <div class="leg"><span class="b ix">IX</span> Indexed</div>
+  <div class="leg" style="color:#6e7681">grey col name = nullable FK &nbsp;·&nbsp; NN = NOT NULL</div>
+</div>
+
+<script>
+window.addEventListener('load', function () {
+  const svg = document.getElementById('arrows');
+
+  const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+  defs.innerHTML = `
+    <marker id="arr" markerWidth="7" markerHeight="6" refX="6" refY="3" orient="auto">
+      <polygon points="0 0,7 3,0 6" fill="#8b949e" opacity="0.75"/>
+    </marker>`;
+  svg.appendChild(defs);
+
+  function edge(id, side) {
+    const el = document.getElementById(id);
+    const cx = el.offsetLeft + el.offsetWidth / 2;
+    const cy = el.offsetTop  + el.offsetHeight / 2;
+    return {
+      top:    { x: cx, y: el.offsetTop },
+      bottom: { x: cx, y: el.offsetTop + el.offsetHeight },
+    }[side];
+  }
+
+  const p1 = edge('t-clients', 'bottom');
+  const p2 = edge('t-sub',     'top');
+  const my = (p1.y + p2.y) / 2;
+
+  const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+
+  const line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  line.setAttribute('d', `M ${p1.x} ${p1.y} C ${p1.x} ${my} ${p2.x} ${my} ${p2.x} ${p2.y}`);
+  line.setAttribute('fill', 'none');
+  line.setAttribute('stroke', '#8b949e');
+  line.setAttribute('stroke-width', '1.5');
+  line.setAttribute('stroke-opacity', '0.55');
+  line.setAttribute('stroke-dasharray', '5 3');
+  line.setAttribute('marker-end', 'url(#arr)');
+  g.appendChild(line);
+
+  function label(x, y, txt, col) {
+    const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    t.setAttribute('x', x); t.setAttribute('y', y);
+    t.setAttribute('fill', col || '#8b949e');
+    t.setAttribute('font-size', '11'); t.setAttribute('font-weight', '700');
+    t.setAttribute('font-family', 'SF Mono,Fira Code,Consolas,monospace');
+    t.textContent = txt;
+    g.appendChild(t);
+  }
+
+  label(p1.x + 6, p1.y + 14, '1');
+  label(p2.x + 6, p2.y - 5,  '0..N');
+
+  svg.appendChild(g);
+});
+</script>
+</body>
+</html>
