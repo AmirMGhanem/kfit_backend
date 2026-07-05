@@ -13,7 +13,7 @@ RUN pip install --no-cache-dir \
     "pydantic-settings>=2.9.0" \
     "boto3>=1.34.0" \
     "pyjwt>=2.8.0" \
-    "passlib[bcrypt]>=1.7.4"
+    "bcrypt>=4.0.0"
 
 COPY . .
 
