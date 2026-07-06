@@ -21,6 +21,7 @@ Nothing here calls the network on its own — the LLM is injected.
 
 from __future__ import annotations
 
+import logging
 import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,6 +37,8 @@ from app.services.meal_planner.steps.step_05_persist import (
     persist_failure,
     persist_success,
 )
+
+logger = logging.getLogger(__name__)
 
 
 async def run_pipeline(
@@ -63,14 +66,44 @@ async def run_pipeline(
         meals_count=meals_count,
         include_snack=include_snack,
     )
+    logger.info(
+        "meal-plan start calc=%s client=%s window=%d-%d meals=%d snack=%s catalog=%d",
+        calculation_id,
+        ctx.client_id,
+        ctx.targets.min_calories,
+        ctx.targets.max_calories,
+        meals_count,
+        include_snack,
+        len(ctx.candidates),
+    )
 
     proposal = await propose(ctx, llm, model=builder_model)
     result = validate(ctx, proposal)
+    logger.info(
+        "attempt 1 builder=%s picks=%d ok=%s total=%d errors=%s",
+        builder_model,
+        len(proposal.picks),
+        result.ok,
+        result.total_calories,
+        result.errors,
+    )
 
     attempts = 1
     while not result.ok and attempts <= config.MAX_REPAIR_ATTEMPTS:
+        logger.info(
+            "repair %d model=%s reason=%s", attempts + 1, repair_model, result.errors
+        )
         proposal = await repair(ctx, proposal, result, llm, model=repair_model)
         result = validate(ctx, proposal)
+        logger.info(
+            "attempt %d repair=%s picks=%d ok=%s total=%d errors=%s",
+            attempts + 1,
+            repair_model,
+            len(proposal.picks),
+            result.ok,
+            result.total_calories,
+            result.errors,
+        )
         attempts += 1
 
     # attempts == 1 means the builder's first proposal shipped; anything more
@@ -78,7 +111,15 @@ async def run_pipeline(
     final_model = builder_model if attempts == 1 else repair_model
 
     if result.ok:
+        logger.info(
+            "meal-plan READY total=%d protein=%d model=%s attempts=%d",
+            result.total_calories,
+            result.total_protein_calories,
+            final_model,
+            attempts,
+        )
         return await persist_success(
             session, ctx, proposal, result, final_model, attempts
         )
+    logger.warning("meal-plan FAILED attempts=%d errors=%s", attempts, result.errors)
     return await persist_failure(session, ctx, result, final_model, attempts)

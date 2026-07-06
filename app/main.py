@@ -1,5 +1,7 @@
+import logging
+import sys
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,9 +17,22 @@ from app.routers.meal_plans import router as meal_plans_router
 from app.routers.submissions import router as submissions_router
 from app.routers.uploads import router as uploads_router
 
+# Surface application INFO logs (e.g. the meal-planner pipeline) to stdout so
+# they appear in `docker compose logs -f backend`. uvicorn only configures its
+# own loggers, so the "app" tree needs its own handler.
+_log_handler = logging.StreamHandler(sys.stdout)
+_log_handler.setFormatter(
+    logging.Formatter("%(asctime)s %(levelname)s %(name)s | %(message)s")
+)
+_app_logger = logging.getLogger("app")
+_app_logger.setLevel(logging.INFO)
+if not _app_logger.handlers:
+    _app_logger.addHandler(_log_handler)
+_app_logger.propagate = False
+
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     ensure_bucket()
     yield
 
