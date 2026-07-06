@@ -52,3 +52,4 @@ jobs:
             echo "$GHCR_TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
             docker pull ghcr.io/amirmghanem/kfit-backend:latest
             docker compose -f ~/kfit/docker-compose.yml up -d --no-deps --force-recreate backend
+            docker compose -f ~/kfit/docker-compose.yml exec -T backend alembic upgrade head
