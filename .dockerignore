@@ -1,0 +1,27 @@
+# Secrets — provided at runtime via compose `env_file`, never baked into the image
+.env
+*.env
+!.env.example
+
+# VCS / project meta
+.git
+.gitignore
+README.md
+
+# Python caches / build artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+
+# OS
+.DS_Store

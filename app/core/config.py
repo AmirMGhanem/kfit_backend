@@ -15,6 +15,14 @@ class Settings(BaseSettings):
     # CORS — JSON array in env (e.g. '["http://localhost:3000","https://kfit.tech"]')
     CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:4000"]
 
+    # OpenAI / LLM (meal-planner agent). Empty until wired; the pipeline only
+    # reads these when an LLM client is constructed.
+    OPENAI_API_KEY: str = ""
+    # Two-model split: a fast model builds the first proposal; a stronger
+    # reasoning model only runs on repair (rare — the validator gates it).
+    OPENAI_BUILDER_MODEL: str = "gpt-4o"
+    OPENAI_REPAIR_MODEL: str = "o4-mini"
+
     # MinIO / S3-compatible storage
     MINIO_INTERNAL_URL: str = "http://minio:9000"
     MINIO_PUBLIC_URL: str = "http://localhost:9000"
