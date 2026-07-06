@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     # reasoning model only runs on repair (rare — the validator gates it).
     OPENAI_BUILDER_MODEL: str = "gpt-4o"
     OPENAI_REPAIR_MODEL: str = "o4-mini"
+    # Submission analyzer (red flags / pain points / insights) — single call.
+    OPENAI_ANALYZER_MODEL: str = "gpt-4o"
 
     # MinIO / S3-compatible storage
     MINIO_INTERNAL_URL: str = "http://minio:9000"
