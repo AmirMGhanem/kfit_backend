@@ -53,6 +53,7 @@ class MealPlanItemOut(BaseModel):
     calories: int
     protein_calories: int | None
     meal_type: str
+    payload: dict
 
 
 class MealPlanOut(BaseModel):
@@ -109,6 +110,7 @@ def _detail(p: MealPlan) -> MealPlanDetailOut:
                 calories=i.calories,
                 protein_calories=i.protein_calories,
                 meal_type=i.meal_type.value,
+                payload=i.meal.payload,
             )
             for i in sorted(p.items, key=lambda x: x.position)
         ],
