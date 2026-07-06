@@ -24,11 +24,48 @@ from openai import AsyncOpenAI
 from pydantic import BaseModel
 
 from app.core.config import settings
-from app.services.meal_planner import config
+from app.services.meal_planner import config, repository
 from app.services.meal_planner.llm.base import Message, T
 from app.services.meal_planner.schemas import MealProposal, ProposedPick
+from app.services.meal_planner.trace import calculation_id_var
 
 logger = logging.getLogger(__name__)
+
+
+async def _record(
+    *,
+    model: str,
+    messages: list[dict[str, str]],
+    status: str,
+    latency_ms: int,
+    response: dict[str, Any] | None = None,
+    raw_meal_ids: list[str] | None = None,
+    dropped_meal_ids: list[str] | None = None,
+    usage: Any | None = None,
+    finish_reason: str | None = None,
+    error: str | None = None,
+) -> None:
+    """Persist an llm_requests row. Best-effort: never breaks a generation."""
+    calc = calculation_id_var.get()
+    try:
+        await repository.save_llm_request(
+            calculation_id=uuid.UUID(calc) if calc else None,
+            model=model,
+            status=status,
+            messages=messages,
+            response=response,
+            raw_meal_ids=raw_meal_ids,
+            dropped_meal_ids=dropped_meal_ids,
+            prompt_tokens=getattr(usage, "prompt_tokens", None),
+            completion_tokens=getattr(usage, "completion_tokens", None),
+            total_tokens=getattr(usage, "total_tokens", None),
+            latency_ms=latency_ms,
+            finish_reason=finish_reason,
+            error=error,
+        )
+    except Exception:  # logging must never break the call
+        logger.warning("failed to persist llm_request", exc_info=True)
+
 
 # Reasoning families: different role vocabulary + no temperature knob.
 _REASONING_PREFIXES = ("o1", "o3", "o4")
@@ -73,8 +110,20 @@ class OpenAIClient:
 
         logger.info("LLM call → model=%s messages=%d", model, len(payload))
         t0 = time.perf_counter()
-        completion = await self._client.beta.chat.completions.parse(**kwargs)
+        try:
+            completion = await self._client.beta.chat.completions.parse(**kwargs)
+        except Exception as exc:
+            latency_ms = int((time.perf_counter() - t0) * 1000)
+            await _record(
+                model=model,
+                messages=payload,
+                status="error",
+                latency_ms=latency_ms,
+                error=str(exc)[:1000],
+            )
+            raise
         dt = time.perf_counter() - t0
+        latency_ms = int(dt * 1000)
 
         choice = completion.choices[0]
         usage = getattr(completion, "usage", None)
@@ -99,15 +148,27 @@ class OpenAIClient:
                 choice.finish_reason,
                 dt,
             )
+            await _record(
+                model=model,
+                messages=payload,
+                status="success",
+                latency_ms=latency_ms,
+                response={"picks": [], "rationale": ""},
+                raw_meal_ids=[],
+                dropped_meal_ids=[],
+                usage=usage,
+                finish_reason=choice.finish_reason,
+                error=refusal,
+            )
             return MealProposal(picks=[], rationale="")  # type: ignore[return-value]
 
-        raw = [(p.meal_id, p.position) for p in parsed.picks]
+        raw_ids = [p.meal_id for p in parsed.picks]
         logger.info(
             "LLM returned %d pick(s) model=%s (%.2fs): %s",
             len(parsed.picks),
             model,
             dt,
-            raw,
+            [(p.meal_id, p.position) for p in parsed.picks],
         )
 
         picks: list[ProposedPick] = []
@@ -128,6 +189,22 @@ class OpenAIClient:
             "valid picks=%d rationale=%r", len(picks), (parsed.rationale or "")[:160]
         )
 
+        await _record(
+            model=model,
+            messages=payload,
+            status="success",
+            latency_ms=latency_ms,
+            response={
+                "picks": [
+                    {"meal_id": p.meal_id, "position": p.position} for p in parsed.picks
+                ],
+                "rationale": parsed.rationale,
+            },
+            raw_meal_ids=raw_ids,
+            dropped_meal_ids=dropped,
+            usage=usage,
+            finish_reason=choice.finish_reason,
+        )
         return MealProposal(  # type: ignore[return-value]
             picks=picks, rationale=parsed.rationale
         )
