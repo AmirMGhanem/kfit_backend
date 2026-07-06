@@ -53,6 +53,11 @@ class MealPlanItemOut(BaseModel):
     calories: int
     protein_calories: int | None
     meal_type: str
+    protein_group_calories: int | None
+    protein_group_grams: int | None
+    carb_group_calories: int | None
+    carb_group_protein_grams: int | None
+    total_protein_grams: int | None
     payload: dict
 
 
@@ -110,6 +115,11 @@ def _detail(p: MealPlan) -> MealPlanDetailOut:
                 calories=i.calories,
                 protein_calories=i.protein_calories,
                 meal_type=i.meal_type.value,
+                protein_group_calories=i.meal.protein_group_calories,
+                protein_group_grams=i.meal.protein_group_grams,
+                carb_group_calories=i.meal.carb_group_calories,
+                carb_group_protein_grams=i.meal.carb_group_protein_grams,
+                total_protein_grams=i.meal.total_protein_grams,
                 payload=i.meal.payload,
             )
             for i in sorted(p.items, key=lambda x: x.position)

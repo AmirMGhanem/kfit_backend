@@ -37,6 +37,13 @@ class Meal(Base, UUIDPKMixin, CreatedAtMixin, UpdatedAtMixin):
         server_default=MealType.generic.value,
     )
 
+    # Structured nutrition breakdown (from kfit_meal_protein_table.csv)
+    protein_group_calories: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    protein_group_grams: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    carb_group_calories: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    carb_group_protein_grams: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    total_protein_grams: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
     # Prepared meal content — populated / fetched out-of-band.
     payload: Mapped[dict[str, Any]] = mapped_column(
         JSONB, nullable=False, server_default="{}"
