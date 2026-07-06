@@ -37,6 +37,7 @@ from app.services.meal_planner.steps.step_05_persist import (
     persist_failure,
     persist_success,
 )
+from app.services.meal_planner.trace import calculation_id_var
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +60,7 @@ async def run_pipeline(
     """
     builder_model = builder_model or config.BUILDER_MODEL
     repair_model = repair_model or config.REPAIR_MODEL
+    calculation_id_var.set(str(calculation_id))
 
     ctx = await build_context(
         session,

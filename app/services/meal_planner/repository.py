@@ -13,11 +13,14 @@ session.
 from __future__ import annotations
 
 import uuid
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.database import AsyncSessionLocal
 from app.models.calculation import Calculation
+from app.models.llm_request import LLMRequest
 from app.models.meal import Meal, MealType
 from app.models.meal_plan import MealPlan, MealPlanItem, MealPlanStatus
 from app.services.meal_planner.schemas import (
@@ -127,3 +130,14 @@ async def save_failed_plan(
     session.add(plan)
     await session.flush()
     return plan.id
+
+
+async def save_llm_request(**fields: Any) -> None:
+    """
+    Persist one LLM-call audit row in its own short-lived transaction, so it is
+    committed independently of (and never rolls back) the generation. Best-effort
+    — the caller swallows exceptions.
+    """
+    async with AsyncSessionLocal() as session:
+        session.add(LLMRequest(**fields))
+        await session.commit()
