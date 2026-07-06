@@ -36,10 +36,14 @@ DO — what to raise and how, what to ask, what to reassure, what to watch for, 
 to build trust — grounded in the form. Never merely restate what the client
 wrote; turn it into advice.
 
-1. red_flags — things needing caution or attention, AND how to handle them on the
-   call: how to raise it, what to set expectations about, when to recommend the
-   client confirm with a doctor. Return an EMPTY list if there are none — never
-   invent concerns.
+1. red_flags — SAFETY FIRST: scan the whole form and surface EVERY health or
+   safety concern — do not skip any. This includes medical conditions, medications,
+   hormonal issues, food allergies, injuries, very low fluid intake, extreme or
+   unrealistic goals, and disordered-eating signals. For EACH one, the detail says
+   how the consultant should handle it on the call (how to raise it, what
+   expectations to set, when to recommend confirming with a doctor). Return an
+   EMPTY list ONLY if the form genuinely shows none — never invent a concern, but
+   never omit a real one either.
 2. pain_points — the client's struggles and frustrations, AND how the consultant
    should acknowledge them and what approach, framing, or reassurance to offer so
    the client feels understood.
