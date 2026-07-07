@@ -25,6 +25,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
 from app.core.config import settings
+from app.core.security import decode_token
 
 router = APIRouter(prefix="/onboarding-tokens", tags=["onboarding-tokens"])
 
@@ -32,10 +33,18 @@ _bearer = HTTPBearer()
 
 
 def _require_automation(credentials: HTTPAuthorizationCredentials = Security(_bearer)) -> None:
-    if not settings.AUTOMATION_API_KEY:
-        raise HTTPException(503, "automation API key not configured")
-    if not _hmac.compare_digest(credentials.credentials, settings.AUTOMATION_API_KEY):
-        raise HTTPException(401, "invalid API key")
+    token = credentials.credentials
+    # Accept automation API key (used by n8n / external automations)
+    if settings.AUTOMATION_API_KEY and _hmac.compare_digest(token, settings.AUTOMATION_API_KEY):
+        return
+    # Also accept any valid staff JWT (used by the admin panel)
+    try:
+        payload = decode_token(token)
+        if payload.get("sub"):
+            return
+    except Exception:
+        pass
+    raise HTTPException(401, "invalid credentials")
 
 TTL_SECONDS = 48 * 3600
 
