@@ -18,7 +18,7 @@ async def list_consultants(
     session: AsyncSession = Depends(get_session),
     _: User = Depends(require_admin),
 ) -> list[UserOut]:
-    result = await session.execute(select(User).where(User.role == "consultant"))
+    result = await session.execute(select(User))
     return [UserOut.model_validate(u) for u in result.scalars().all()]
 
 
