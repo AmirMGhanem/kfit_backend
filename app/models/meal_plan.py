@@ -3,16 +3,18 @@ import uuid
 
 from sqlalchemy import (
     Boolean,
-    Enum as SAEnum,
     ForeignKey,
     Integer,
     String,
     Text,
     UniqueConstraint,
 )
+from sqlalchemy import (
+    Enum as SAEnum,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base, CreatedAtMixin, UUIDPKMixin, UpdatedAtMixin
+from app.models.base import Base, CreatedAtMixin, UpdatedAtMixin, UUIDPKMixin
 from app.models.meal import Meal, MealType
 
 
@@ -45,6 +47,9 @@ class MealPlan(Base, UUIDPKMixin, CreatedAtMixin, UpdatedAtMixin):
     # ── Snapshot of the targets / request at generation time ────────────────
     min_calories: Mapped[int] = mapped_column(Integer, nullable=False)
     max_calories: Mapped[int] = mapped_column(Integer, nullable=False)
+    # Free calories (R1): the daily budget the client spends freely; the meals
+    # sum to (daily − free_calories), not the full window.
+    free_calories: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # Number of generic (main) meals requested; a snack is added on top.
     meals_count: Mapped[int] = mapped_column(Integer, nullable=False)
     include_snack: Mapped[bool] = mapped_column(
@@ -59,9 +64,7 @@ class MealPlan(Base, UUIDPKMixin, CreatedAtMixin, UpdatedAtMixin):
 
     # ── Filled when status flips to ``ready`` ───────────────────────────────
     total_calories: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    total_protein_calories: Mapped[int | None] = mapped_column(
-        Integer, nullable=True
-    )
+    total_protein_calories: Mapped[int | None] = mapped_column(Integer, nullable=True)
     model: Mapped[str | None] = mapped_column(String, nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
 

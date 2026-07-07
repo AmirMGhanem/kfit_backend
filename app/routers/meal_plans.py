@@ -58,7 +58,7 @@ class MealPlanItemOut(BaseModel):
     carb_group_calories: int | None
     carb_group_protein_grams: int | None
     total_protein_grams: int | None
-    payload: dict
+    payload: dict[str, object]
 
 
 class MealPlanOut(BaseModel):
@@ -70,6 +70,7 @@ class MealPlanOut(BaseModel):
     status: str
     min_calories: int
     max_calories: int
+    free_calories: int | None
     meals_count: int
     include_snack: bool
     total_calories: int | None
@@ -94,6 +95,7 @@ def _summary(p: MealPlan) -> MealPlanOut:
         status=p.status.value,
         min_calories=p.min_calories,
         max_calories=p.max_calories,
+        free_calories=p.free_calories,
         meals_count=p.meals_count,
         include_snack=p.include_snack,
         total_calories=p.total_calories,

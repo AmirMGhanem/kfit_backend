@@ -25,15 +25,24 @@ from pydantic import BaseModel, Field
 
 # ── Inputs the agent reasons about ──────────────────────────────────────────
 class PlanTargets(BaseModel):
-    """The constraint window + what the client asked for."""
+    """The constraint window, the client's request, and the computed targets."""
 
     min_calories: int
     max_calories: int
     # Number of generic (main) meals requested; a snack is added on top.
     meals_count: int
     include_snack: bool
-    # Soft target — prefer selections that meet or exceed it. May be None.
-    protein_calories_target: int | None = None
+
+    # Computed deterministically (targets.compute_targets) — R1/R2.
+    daily_calories: int
+    free_calories: int
+    remaining_calories: int
+    meal_targets: dict[int, int]  # position (1-based) -> calorie target
+    big_meal_position: int | None  # the ⅔ meal that must carry a fat source
+    tolerance: int
+
+    # Client's fruit preference (R7): daily | sometimes | no | no-preference | None
+    fruit_preference: str | None = None
 
 
 class MealCandidate(BaseModel):
@@ -43,7 +52,10 @@ class MealCandidate(BaseModel):
     name: str
     calories: int
     protein_calories: int | None
+    total_protein_grams: int | None
     meal_type: str  # "generic" | "snack"
+    has_fat_source: bool = False
+    suitable_as_big_meal: bool = False
 
 
 class PlanContext(BaseModel):
