@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     # Onboarding token (stateless HMAC — no DB needed)
     ONBOARDING_SECRET: str = "change-me-onboarding-secret"
     LANDING_BASE_URL: str = "http://localhost:3000"
+
+    # Static API key for automation (n8n, etc.) — non-expiring, used only to call POST /onboarding-tokens/
+    AUTOMATION_API_KEY: str = ""
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 

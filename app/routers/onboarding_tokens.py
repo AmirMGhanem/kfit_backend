@@ -18,13 +18,24 @@ import hmac
 import struct
 import time
 
-from fastapi import APIRouter, Depends, HTTPException
+import hmac as _hmac
+
+from fastapi import APIRouter, Depends, HTTPException, Security
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
 from app.core.config import settings
-from app.core.deps import require_staff
 
 router = APIRouter(prefix="/onboarding-tokens", tags=["onboarding-tokens"])
+
+_bearer = HTTPBearer()
+
+
+def _require_automation(credentials: HTTPAuthorizationCredentials = Security(_bearer)) -> None:
+    if not settings.AUTOMATION_API_KEY:
+        raise HTTPException(503, "automation API key not configured")
+    if not _hmac.compare_digest(credentials.credentials, settings.AUTOMATION_API_KEY):
+        raise HTTPException(401, "invalid API key")
 
 TTL_SECONDS = 48 * 3600
 
@@ -81,7 +92,7 @@ class VerifyOut(BaseModel):
 
 # ── Routes ───────────────────────────────────────────────────────────────────
 
-@router.post("/", response_model=GenerateOut, dependencies=[Depends(require_staff)])
+@router.post("/", response_model=GenerateOut, dependencies=[Depends(_require_automation)])
 def generate_token() -> GenerateOut:
     now = int(time.time())
     token = _build_token(now)
