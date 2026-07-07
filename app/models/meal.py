@@ -1,11 +1,12 @@
 import enum
 from typing import Any
 
-from sqlalchemy import Boolean, Enum as SAEnum, Integer, String
+from sqlalchemy import Boolean, Integer, String
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.models.base import Base, CreatedAtMixin, UUIDPKMixin, UpdatedAtMixin
+from app.models.base import Base, CreatedAtMixin, UpdatedAtMixin, UUIDPKMixin
 
 
 class MealType(enum.Enum):
@@ -43,6 +44,21 @@ class Meal(Base, UUIDPKMixin, CreatedAtMixin, UpdatedAtMixin):
     carb_group_calories: Mapped[int | None] = mapped_column(Integer, nullable=True)
     carb_group_protein_grams: Mapped[int | None] = mapped_column(Integer, nullable=True)
     total_protein_grams: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    # Full component detail (from kfit_meal_full_components_table.xlsx)
+    meal_structure: Mapped[str | None] = mapped_column(String, nullable=True)
+    veg_group_calories: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    fat_group_calories: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    fat_source: Mapped[str | None] = mapped_column(String, nullable=True)
+    notes: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    # Fat rule (R5/R6): the big meal must contain a built-in fat source.
+    has_fat_source: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="false"
+    )
+    suitable_as_big_meal: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="false"
+    )
 
     # Prepared meal content — populated / fetched out-of-band.
     payload: Mapped[dict[str, Any]] = mapped_column(
