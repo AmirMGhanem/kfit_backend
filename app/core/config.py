@@ -9,6 +9,10 @@ class Settings(BaseSettings):
 
     # Auth
     JWT_SECRET: str
+
+    # Onboarding token (stateless HMAC — no DB needed)
+    ONBOARDING_SECRET: str = "change-me-onboarding-secret"
+    LANDING_BASE_URL: str = "http://localhost:3000"
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 

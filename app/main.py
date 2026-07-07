@@ -14,6 +14,7 @@ from app.routers.calculations import router as calculations_router
 from app.routers.clients import router as clients_router
 from app.routers.consultants import router as consultants_router
 from app.routers.meal_plans import router as meal_plans_router
+from app.routers.onboarding_tokens import router as onboarding_tokens_router
 from app.routers.submissions import router as submissions_router
 from app.routers.uploads import router as uploads_router
 
@@ -55,6 +56,7 @@ app.include_router(consultants_router, prefix="/consultants")
 app.include_router(meal_plans_router)
 app.include_router(uploads_router)
 app.include_router(submissions_router)
+app.include_router(onboarding_tokens_router)
 
 
 @app.get("/health")
