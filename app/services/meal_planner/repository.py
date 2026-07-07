@@ -23,6 +23,8 @@ from app.models.calculation import Calculation
 from app.models.llm_request import LLMRequest
 from app.models.meal import Meal, MealType
 from app.models.meal_plan import MealPlan, MealPlanItem, MealPlanStatus
+from app.models.submission import Submission
+from app.services.meal_planner import targets as target_calc
 from app.services.meal_planner.schemas import (
     MealCandidate,
     MealProposal,
@@ -39,17 +41,35 @@ async def fetch_targets(
     meals_count: int,
     include_snack: bool,
 ) -> tuple[uuid.UUID, PlanTargets]:
-    """Load the calorie window from the calculation. Returns (client_id, targets)."""
+    """Load the window, compute the rule targets, read the fruit preference.
+
+    Returns (client_id, targets).
+    """
     calc = await session.get(Calculation, calculation_id)
     if calc is None:
         raise ValueError(f"calculation {calculation_id} not found")
+
+    mt = target_calc.compute_targets(calc.min_calories, calc.max_calories, meals_count)
+
+    # Fruit preference lives in the originating submission's payload (R7).
+    fruit_pref: str | None = None
+    submission = await session.get(Submission, calc.submission_id)
+    if submission is not None:
+        raw = submission.payload.get("fruitPreference")
+        fruit_pref = str(raw) if raw else None
 
     targets = PlanTargets(
         min_calories=calc.min_calories,
         max_calories=calc.max_calories,
         meals_count=meals_count,
         include_snack=include_snack,
-        protein_calories_target=None,  # no protein target column yet
+        daily_calories=mt.daily_calories,
+        free_calories=mt.free_calories,
+        remaining_calories=mt.remaining_calories,
+        meal_targets=mt.meal_targets,
+        big_meal_position=mt.big_meal_position,
+        tolerance=mt.tolerance,
+        fruit_preference=fruit_pref,
     )
     return calc.client_id, targets
 
@@ -65,7 +85,10 @@ async def fetch_active_catalog(session: AsyncSession) -> list[MealCandidate]:
             name=m.name,
             calories=m.calories,
             protein_calories=m.protein_calories,
+            total_protein_grams=m.total_protein_grams,
             meal_type=m.meal_type.value,
+            has_fat_source=m.has_fat_source,
+            suitable_as_big_meal=m.suitable_as_big_meal,
         )
         for m in rows
     ]
@@ -85,6 +108,7 @@ async def save_ready_plan(
         calculation_id=ctx.calculation_id,
         min_calories=ctx.targets.min_calories,
         max_calories=ctx.targets.max_calories,
+        free_calories=ctx.targets.free_calories,
         meals_count=ctx.targets.meals_count,
         include_snack=ctx.targets.include_snack,
         status=MealPlanStatus.ready,
@@ -121,6 +145,7 @@ async def save_failed_plan(
         calculation_id=ctx.calculation_id,
         min_calories=ctx.targets.min_calories,
         max_calories=ctx.targets.max_calories,
+        free_calories=ctx.targets.free_calories,
         meals_count=ctx.targets.meals_count,
         include_snack=ctx.targets.include_snack,
         status=MealPlanStatus.failed,
