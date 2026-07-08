@@ -75,9 +75,14 @@ async def fetch_targets(
 
 
 async def fetch_active_catalog(session: AsyncSession) -> list[MealCandidate]:
-    """All active meals, reduced to what the agent needs to choose."""
+    """Active meals the agent may choose — excludes free-calorie items, which
+    are attached by code, not selected by the model."""
     rows = (
-        await session.execute(select(Meal).where(Meal.is_active.is_(True)))
+        await session.execute(
+            select(Meal).where(
+                Meal.is_active.is_(True), Meal.meal_type != MealType.free
+            )
+        )
     ).scalars()
     return [
         MealCandidate(
@@ -94,6 +99,17 @@ async def fetch_active_catalog(session: AsyncSession) -> list[MealCandidate]:
     ]
 
 
+async def fetch_free_meal(session: AsyncSession, calories: int) -> Meal | None:
+    """The free-calorie catalog row matching the code-computed bucket."""
+    return (
+        await session.execute(
+            select(Meal).where(
+                Meal.meal_type == MealType.free, Meal.calories == calories
+            )
+        )
+    ).scalar_one_or_none()
+
+
 async def save_ready_plan(
     session: AsyncSession,
     ctx: PlanContext,
@@ -101,8 +117,13 @@ async def save_ready_plan(
     result: ValidationResult,
     model: str,
 ) -> uuid.UUID:
-    """Persist a validated plan + its items, status=ready. Returns the plan id."""
+    """Persist a validated plan + its items, status=ready. Returns the plan id.
+
+    Appends the free-calorie allowance as the final plan item (R1) so the plan's
+    total lands in the window: meals (daily − free) + free = daily.
+    """
     index = ctx.candidate_index()
+    free_total = 0
     plan = MealPlan(
         client_id=ctx.client_id,
         calculation_id=ctx.calculation_id,
@@ -112,12 +133,13 @@ async def save_ready_plan(
         meals_count=ctx.targets.meals_count,
         include_snack=ctx.targets.include_snack,
         status=MealPlanStatus.ready,
-        total_calories=result.total_calories,
         total_protein_calories=result.total_protein_calories,
         model=model,
     )
+    max_pos = 0
     for pick in sorted(proposal.picks, key=lambda p: p.position):
         meal = index[pick.meal_id]  # validated to exist before we get here
+        max_pos = max(max_pos, pick.position)
         plan.items.append(
             MealPlanItem(
                 meal_id=meal.meal_id,
@@ -127,6 +149,23 @@ async def save_ready_plan(
                 meal_type=MealType(meal.meal_type),
             )
         )
+
+    # Free-calorie allowance as the last item (code-attached, value from targets).
+    free_meal = await fetch_free_meal(session, ctx.targets.free_calories)
+    if free_meal is not None:
+        free_total = free_meal.calories
+        plan.items.append(
+            MealPlanItem(
+                meal_id=free_meal.id,
+                position=max_pos + 1,
+                calories=free_meal.calories,
+                protein_calories=None,
+                meal_type=MealType.free,
+            )
+        )
+
+    # Total includes the free item → lands in [min, max] (= daily).
+    plan.total_calories = result.total_calories + free_total
     session.add(plan)
     await session.flush()
     return plan.id
