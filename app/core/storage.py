@@ -77,3 +77,27 @@ def presigned_put_url(key: str, content_type: str, expires: int = 3600) -> str:
         },
         ExpiresIn=expires,
     )
+
+
+def put_object(key: str, data: bytes, content_type: str) -> None:
+    """Upload bytes to MinIO from the backend (server-side)."""
+    _get_internal().put_object(
+        Bucket=settings.MINIO_BUCKET,
+        Key=key,
+        Body=data,
+        ContentType=content_type,
+    )
+
+
+def get_object(key: str) -> bytes:
+    """Download an object's bytes from MinIO (server-side)."""
+    resp = _get_internal().get_object(Bucket=settings.MINIO_BUCKET, Key=key)
+    return resp["Body"].read()
+
+
+def delete_object(key: str) -> None:
+    """Delete an object from MinIO (best-effort)."""
+    try:
+        _get_internal().delete_object(Bucket=settings.MINIO_BUCKET, Key=key)
+    except ClientError:
+        logger.warning("failed to delete object %s", key, exc_info=True)

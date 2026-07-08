@@ -31,6 +31,9 @@ class Settings(BaseSettings):
     OPENAI_REPAIR_MODEL: str = "o4-mini"
     # Submission analyzer (red flags / pain points / insights) — single call.
     OPENAI_ANALYZER_MODEL: str = "gpt-4o"
+    # RAG knowledge base — embeddings + the consultant chat assistant.
+    OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-small"
+    OPENAI_CHAT_MODEL: str = "gpt-4o"
 
     # MinIO / S3-compatible storage
     MINIO_INTERNAL_URL: str = "http://minio:9000"
