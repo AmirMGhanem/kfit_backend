@@ -19,7 +19,9 @@ RUN pip install --no-cache-dir \
     "tiktoken>=0.7.0" \
     "pypdf>=5.0.0" \
     "python-docx>=1.1.0" \
-    "python-multipart>=0.0.9"
+    "python-multipart>=0.0.9" \
+    "httpx>=0.28.0" \
+    "trafilatura>=1.12.0"
 
 COPY . .
 

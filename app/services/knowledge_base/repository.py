@@ -20,6 +20,7 @@ async def create_document(
     size_bytes: int,
     category: str | None,
     uploaded_by: uuid.UUID | None,
+    source_url: str | None = None,
 ) -> KnowledgeDocument:
     doc = KnowledgeDocument(
         title=title,
@@ -29,6 +30,7 @@ async def create_document(
         size_bytes=size_bytes,
         category=category,
         uploaded_by=uploaded_by,
+        source_url=source_url,
         status="pending",
     )
     session.add(doc)

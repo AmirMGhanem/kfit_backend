@@ -26,6 +26,8 @@ class KnowledgeDocument(Base, UUIDPKMixin, CreatedAtMixin, UpdatedAtMixin):
     content_type: Mapped[str] = mapped_column(String, nullable=False)
     size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
     category: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Set when the document was ingested from a web page; NULL for uploads.
+    source_url: Mapped[str | None] = mapped_column(String, nullable=True)
 
     status: Mapped[str] = mapped_column(
         String, nullable=False, server_default="pending"
