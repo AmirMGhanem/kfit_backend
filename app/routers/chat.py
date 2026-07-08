@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_session
 from app.core.deps import require_staff
 from app.models.chat import ChatConversation, ChatMessage
+from app.models.client import Client
 from app.models.user import User
 from app.services.chat_assistant import repository, run_chat
 
@@ -98,7 +99,17 @@ async def create_conversation(
     user: User = Depends(require_staff),
     session: AsyncSession = Depends(get_session),
 ) -> ConversationOut:
-    conv = await repository.create_conversation(session, user.id, body.client_id)
+    # When attached to a client, title the conversation with the client's name
+    # so it's identifiable/reusable in the list.
+    title: str | None = None
+    if body.client_id is not None:
+        client = await session.get(Client, body.client_id)
+        if client is None:
+            raise HTTPException(404, "client not found")
+        title = client.full_name
+    conv = await repository.create_conversation(
+        session, user.id, body.client_id, title=title
+    )
     await session.commit()
     return _conv(conv)
 
