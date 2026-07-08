@@ -12,6 +12,7 @@ from app.models.base import Base, CreatedAtMixin, UpdatedAtMixin, UUIDPKMixin
 class MealType(enum.Enum):
     generic = "generic"
     snack = "snack"
+    free = "free"  # free-calorie allowance (R1) — code-attached, not agent-picked
 
 
 class Meal(Base, UUIDPKMixin, CreatedAtMixin, UpdatedAtMixin):
