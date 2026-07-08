@@ -14,7 +14,12 @@ RUN pip install --no-cache-dir \
     "boto3>=1.34.0" \
     "pyjwt>=2.8.0" \
     "bcrypt>=4.0.0" \
-    "openai>=1.50.0"
+    "openai>=1.50.0" \
+    "pgvector>=0.3.0" \
+    "tiktoken>=0.7.0" \
+    "pypdf>=5.0.0" \
+    "python-docx>=1.1.0" \
+    "python-multipart>=0.0.9"
 
 COPY . .
 

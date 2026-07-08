@@ -11,9 +11,11 @@ from app.core.storage import ensure_bucket
 from app.routers.admin import router as admin_router
 from app.routers.auth import router as auth_router
 from app.routers.calculations import router as calculations_router
+from app.routers.chat import router as chat_router
 from app.routers.clients import router as clients_router
 from app.routers.consultants import router as consultants_router
 from app.routers.free_calculations import router as free_calculations_router
+from app.routers.knowledge import router as knowledge_router
 from app.routers.meal_plans import router as meal_plans_router
 from app.routers.onboarding_tokens import router as onboarding_tokens_router
 from app.routers.submissions import router as submissions_router
@@ -55,6 +57,8 @@ app.include_router(clients_router)
 app.include_router(calculations_router)
 app.include_router(consultants_router, prefix="/consultants")
 app.include_router(free_calculations_router)
+app.include_router(knowledge_router)
+app.include_router(chat_router)
 app.include_router(meal_plans_router)
 app.include_router(uploads_router)
 app.include_router(submissions_router)
