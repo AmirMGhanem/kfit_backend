@@ -35,7 +35,7 @@ from app.services.knowledge_base import repository, run_ingestion
 
 router = APIRouter(prefix="/knowledge", tags=["knowledge"])
 
-MAX_SIZE = 25 * 1024 * 1024  # 25 MB
+MAX_SIZE = 20 * 1024 * 1024  # 20 MB (matches nginx client_max_body_size)
 
 
 class DocumentOut(BaseModel):
@@ -79,7 +79,7 @@ async def upload_document(
     if not data:
         raise HTTPException(400, "empty file")
     if len(data) > MAX_SIZE:
-        raise HTTPException(413, "file too large (max 25 MB)")
+        raise HTTPException(413, "file too large (max 20 MB)")
 
     content_type = file.content_type or "application/octet-stream"
     key = f"knowledge/{uuid.uuid4()}-{file.filename}"
