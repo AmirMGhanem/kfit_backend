@@ -58,8 +58,11 @@ async def run_chat(assistant_message_id: uuid.UUID, question: str) -> None:
 
             await _set_step(session, msg, "מנסח תשובה…")
             history = await repository.recent_history(session, conv.id, limit=10)
-            # Drop the just-created empty assistant turn from history.
             history = [(r, c) for r, c in history if c]
+            # The current question is appended separately by build_messages —
+            # drop it from history so it isn't sent twice.
+            if history and history[-1] == ("user", question):
+                history = history[:-1]
             messages = prompter.build_messages(question, chunks, client_ctx, history)
 
             answer = await _complete(messages)
