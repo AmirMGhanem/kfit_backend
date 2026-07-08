@@ -18,8 +18,12 @@ async def create_conversation(
     session: AsyncSession,
     consultant_id: uuid.UUID,
     client_id: uuid.UUID | None,
+    *,
+    title: str | None = None,
 ) -> ChatConversation:
-    conv = ChatConversation(consultant_id=consultant_id, client_id=client_id)
+    conv = ChatConversation(
+        consultant_id=consultant_id, client_id=client_id, title=title
+    )
     session.add(conv)
     await session.flush()
     return conv
