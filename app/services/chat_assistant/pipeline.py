@@ -74,17 +74,23 @@ async def run_chat(assistant_message_id: uuid.UUID, question: str) -> None:
             async def _on_data_step() -> None:
                 await _set_step(session, msg, "בודק נתונים…")
 
-            answer = await _run_tool_loop(session, messages, _on_data_step)
+            scoped = str(conv.client_id) if conv.client_id else None
+            answer = await _run_tool_loop(session, messages, _on_data_step, scoped)
 
             msg.content = answer
-            msg.sources = [
-                {
-                    "document_id": c.document_id,
-                    "title": c.title,
-                    "similarity": round(c.similarity, 3),
-                }
-                for c in chunks
-            ]
+            # One source per DOCUMENT (not per chunk) — keep the best similarity.
+            by_doc: dict[str, dict[str, Any]] = {}
+            for c in chunks:
+                cur = by_doc.get(c.document_id)
+                if cur is None or c.similarity > cur["similarity"]:
+                    by_doc[c.document_id] = {
+                        "document_id": c.document_id,
+                        "title": c.title,
+                        "similarity": round(c.similarity, 3),
+                    }
+            msg.sources = sorted(
+                by_doc.values(), key=lambda s: s["similarity"], reverse=True
+            )
             msg.status = "ready"
             msg.step = None
             if conv.title is None:
@@ -107,7 +113,7 @@ async def run_chat(assistant_message_id: uuid.UUID, question: str) -> None:
                 await session.commit()
 
 
-async def _run_tool_loop(session, messages, on_data_step) -> str:  # type: ignore[no-untyped-def]
+async def _run_tool_loop(session, messages, on_data_step, scoped_client_id=None) -> str:  # type: ignore[no-untyped-def]
     """
     Drive the chat with function-calling: the model may call read-only toolkit
     fetches, we run them and feed results back, until it returns a final answer.
@@ -150,7 +156,9 @@ async def _run_tool_loop(session, messages, on_data_step) -> str:  # type: ignor
             except json.JSONDecodeError:
                 args = {}
             try:
-                result = await ai_toolkit.execute(tc.function.name, args, session)
+                result = await ai_toolkit.execute(
+                    tc.function.name, args, session, scoped_client_id
+                )
             except Exception as exc:  # tool failure → model recovers
                 result = {"error": str(exc)[:300]}
             logger.info("chat tool %s(%s)", tc.function.name, args)
