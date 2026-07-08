@@ -21,7 +21,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.calculation import Calculation
 from app.models.client import Client
 from app.models.knowledge import KnowledgeDocument
-from app.models.meal_plan import MealPlan
+from app.models.meal import Meal
+from app.models.meal_plan import MealPlan, MealPlanItem
 from app.models.submission import Submission
 from app.services.chat_assistant.client_context import load_client_context
 
@@ -59,7 +60,9 @@ def _clamp_limit(limit: Any) -> int:
 
 
 # ── Tool handlers ───────────────────────────────────────────────────────────
-async def count_clients(session: AsyncSession, status: str | None = None) -> dict[str, Any]:
+async def count_clients(
+    session: AsyncSession, status: str | None = None
+) -> dict[str, Any]:
     stmt = select(func.count()).select_from(Client)
     if status:
         stmt = stmt.where(cast(Client.status, String) == status)
@@ -127,6 +130,81 @@ async def get_client_details(session: AsyncSession, client_id: str) -> dict[str,
     return {"details": ctx}
 
 
+async def get_meal_plan(
+    session: AsyncSession,
+    client_id: str | None = None,
+    plan_id: str | None = None,
+) -> dict[str, Any]:
+    """The client's meal plan with its actual meals + the food content of each."""
+    plan: MealPlan | None = None
+    if plan_id:
+        try:
+            plan = await session.get(MealPlan, uuid.UUID(plan_id))
+        except (ValueError, TypeError):
+            return {"error": "invalid plan_id"}
+    elif client_id:
+        try:
+            cid = uuid.UUID(client_id)
+        except (ValueError, TypeError):
+            return {"error": "invalid client_id"}
+        plan = (
+            await session.execute(
+                select(MealPlan)
+                .where(MealPlan.client_id == cid)
+                .order_by(MealPlan.created_at.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+    else:
+        return {"error": "provide client_id or plan_id (or scope the chat to a client)"}
+
+    if plan is None:
+        return {"note": "no meal plan found for this client"}
+
+    items = (
+        (
+            await session.execute(
+                select(MealPlanItem)
+                .where(MealPlanItem.meal_plan_id == plan.id)
+                .order_by(MealPlanItem.position)
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    out_items = []
+    for it in items:
+        meal = await session.get(Meal, it.meal_id)
+        payload = (meal.payload if meal else None) or {}
+        out_items.append(
+            {
+                "position": it.position,
+                "type": it.meal_type.value,  # generic | snack | free
+                "calories": it.calories,
+                "protein_calories": it.protein_calories,
+                "protein_grams": meal.total_protein_grams if meal else None,
+                "fat_source": meal.fat_source if meal else None,
+                "name": meal.name if meal else None,
+                # The actual food options the client can eat for this meal.
+                "foods": payload.get("content"),
+            }
+        )
+
+    return {
+        "plan": {
+            "created": plan.created_at.date().isoformat(),
+            "status": plan.status.value,
+            "calorie_window": f"{plan.min_calories}-{plan.max_calories}",
+            "free_calories": plan.free_calories,
+            "total_calories": plan.total_calories,
+            "meals_count": plan.meals_count,
+            "include_snack": plan.include_snack,
+        },
+        "items": out_items,
+    }
+
+
 async def count_submissions(
     session: AsyncSession, since_days: int | None = None
 ) -> dict[str, Any]:
@@ -139,7 +217,9 @@ async def count_submissions(
     return {"count": total, "since_days": since_days}
 
 
-async def count_meal_plans(session: AsyncSession, status: str | None = None) -> dict[str, Any]:
+async def count_meal_plans(
+    session: AsyncSession, status: str | None = None
+) -> dict[str, Any]:
     stmt = select(func.count()).select_from(MealPlan)
     if status:
         stmt = stmt.where(cast(MealPlan.status, String) == status)
@@ -229,6 +309,22 @@ _TOOLS: list[Tool] = [
         get_client_details,
     ),
     Tool(
+        "get_meal_plan",
+        "Get the client's meal plan with the ACTUAL meals and the food options of "
+        "each (calories, protein, meal type, and the foods the client can eat). Use "
+        "this for any question about what/when/which food the client should eat, "
+        "carbs, snacks, pre/post-workout, substitutions, or 'what does the plan say'. "
+        "Defaults to the client the chat is scoped to.",
+        {
+            "type": "object",
+            "properties": {
+                "client_id": {"type": "string"},
+                "plan_id": {"type": "string"},
+            },
+        },
+        get_meal_plan,
+    ),
+    Tool(
         "count_submissions",
         "Count onboarding submissions, optionally within the last N days.",
         {
@@ -271,15 +367,30 @@ _TOOLS: list[Tool] = [
 
 _BY_NAME: dict[str, Tool] = {t.name: t for t in _TOOLS}
 
+# Tools that operate on "the current client" — default their client_id to the
+# client the chat is scoped to when the model doesn't pass one.
+_CLIENT_DEFAULT_TOOLS = {"get_meal_plan", "get_client_details"}
+
 
 def openai_tools() -> list[dict[str, Any]]:
     """All tool schemas for the OpenAI `tools` parameter."""
     return [t.schema() for t in _TOOLS]
 
 
-async def execute(name: str, args: dict[str, Any], session: AsyncSession) -> Any:
+async def execute(
+    name: str,
+    args: dict[str, Any],
+    session: AsyncSession,
+    scoped_client_id: str | None = None,
+) -> Any:
     """Dispatch a tool call by name. Unknown tool → error dict (model recovers)."""
     tool = _BY_NAME.get(name)
     if tool is None:
         return {"error": f"unknown tool: {name}"}
-    return await tool.handler(session, **(args or {}))
+    call_args = dict(args or {})
+    # In a client-scoped chat, these tools always operate on the scoped client:
+    # force the id (the model can't know UUIDs and often passes the client's
+    # name instead) — this also prevents cross-client access.
+    if name in _CLIENT_DEFAULT_TOOLS and scoped_client_id:
+        call_args["client_id"] = scoped_client_id
+    return await tool.handler(session, **call_args)
