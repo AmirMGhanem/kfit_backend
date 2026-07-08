@@ -4,10 +4,14 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import case, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.chat import ChatConversation, ChatMessage
+
+# Within one turn the user + assistant messages share a created_at (same
+# transaction → same now()), so break ties with role: user before assistant.
+_ROLE_ORDER = case((ChatMessage.role == "user", 0), else_=1)
 
 
 async def create_conversation(
@@ -49,7 +53,7 @@ async def get_messages(
             await session.execute(
                 select(ChatMessage)
                 .where(ChatMessage.conversation_id == conversation_id)
-                .order_by(ChatMessage.created_at)
+                .order_by(ChatMessage.created_at, _ROLE_ORDER)
             )
         ).scalars()
     )
@@ -88,7 +92,7 @@ async def recent_history(
                     ChatMessage.conversation_id == conversation_id,
                     ChatMessage.content.is_not(None),
                 )
-                .order_by(ChatMessage.created_at.desc())
+                .order_by(ChatMessage.created_at.desc(), _ROLE_ORDER.desc())
                 .limit(limit)
             )
         )
