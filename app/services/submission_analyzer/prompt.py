@@ -56,9 +56,14 @@ Rules:
 - You advise a human professional — do NOT diagnose or prescribe. For clinical
   matters, frame it as a point to "confirm with a doctor".
 - Each item: a short `title`, and a `detail` of 1-2 sentences of concrete guidance
-  addressed to the consultant (e.g. "ask her…", "open by acknowledging…",
-  "set expectations that…").
+  addressed to the consultant.
 - Write ALL `title` and `detail` text in HEBREW, whatever language the form uses.
+- GENDER: the consultant reading this may be a man or a woman — write in
+  GENDER-NEUTRAL Hebrew and never use female-only (or male-only) verb forms when
+  addressing the consultant. Prefer impersonal/infinitive phrasing such as
+  "כדאי לשאול", "חשוב להדגיש", "מומלץ להכיר ב…", "יש לוודא ש…" instead of gendered
+  imperatives like "שאלי"/"שאל" or "הדגישי"/"הדגש". The CLIENT's own gender is
+  known from the form — refer to the client with the correct gendered forms.
 - Be specific to THIS client, as if briefing the consultant moments before the call.
 """
 
