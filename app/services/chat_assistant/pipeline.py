@@ -12,15 +12,18 @@ sees the thinking text), then fills content + sources when done.
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 import uuid
+from typing import Any
 
 from openai import AsyncOpenAI
 
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal
 from app.models.chat import ChatMessage
+from app.services import ai_toolkit
 from app.services.chat_assistant import prompt as prompter
 from app.services.chat_assistant import repository
 from app.services.chat_assistant.client_context import load_client_context
@@ -28,6 +31,9 @@ from app.services.knowledge_base import retrieval
 from app.services.llm_audit import save_llm_request
 
 logger = logging.getLogger(__name__)
+
+# Cap the tool-calling loop so a misbehaving model can't spin forever.
+MAX_TOOL_ITERATIONS = 5
 
 
 async def _set_step(session, msg, step: str, status: str = "generating") -> None:  # type: ignore[no-untyped-def]
@@ -65,7 +71,10 @@ async def run_chat(assistant_message_id: uuid.UUID, question: str) -> None:
                 history = history[:-1]
             messages = prompter.build_messages(question, chunks, client_ctx, history)
 
-            answer = await _complete(messages)
+            async def _on_data_step() -> None:
+                await _set_step(session, msg, "בודק נתונים…")
+
+            answer = await _run_tool_loop(session, messages, _on_data_step)
 
             msg.content = answer
             msg.sources = [
@@ -98,17 +107,72 @@ async def run_chat(assistant_message_id: uuid.UUID, question: str) -> None:
                 await session.commit()
 
 
-async def _complete(messages: list[dict[str, str]]) -> str:
+async def _run_tool_loop(session, messages, on_data_step) -> str:  # type: ignore[no-untyped-def]
+    """
+    Drive the chat with function-calling: the model may call read-only toolkit
+    fetches, we run them and feed results back, until it returns a final answer.
+    Bounded by MAX_TOOL_ITERATIONS; the final pass runs without tools to force an
+    answer if the cap is hit.
+    """
     if not settings.OPENAI_API_KEY:
         raise RuntimeError("OPENAI_API_KEY is not set")
     client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
     model = settings.OPENAI_CHAT_MODEL
+    tools = ai_toolkit.openai_tools()
+
+    for _ in range(MAX_TOOL_ITERATIONS):
+        resp = await _chat(client, model, messages, tools=tools)
+        m = resp.choices[0].message
+        if not m.tool_calls:
+            return m.content or ""
+
+        await on_data_step()
+        messages.append(
+            {
+                "role": "assistant",
+                "content": m.content,
+                "tool_calls": [
+                    {
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": tc.function.arguments,
+                        },
+                    }
+                    for tc in m.tool_calls
+                ],
+            }
+        )
+        for tc in m.tool_calls:
+            try:
+                args = json.loads(tc.function.arguments or "{}")
+            except json.JSONDecodeError:
+                args = {}
+            try:
+                result = await ai_toolkit.execute(tc.function.name, args, session)
+            except Exception as exc:  # tool failure → model recovers
+                result = {"error": str(exc)[:300]}
+            logger.info("chat tool %s(%s)", tc.function.name, args)
+            messages.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": tc.id,
+                    "content": json.dumps(result, ensure_ascii=False, default=str),
+                }
+            )
+
+    # Cap hit — one final answer with no tools.
+    resp = await _chat(client, model, messages, tools=None)
+    return resp.choices[0].message.content or ""
+
+
+async def _chat(client, model, messages, *, tools) -> Any:  # type: ignore[no-untyped-def]
     t0 = time.perf_counter()
-    resp = await client.chat.completions.create(
-        model=model,
-        messages=messages,  # type: ignore[arg-type]
-        temperature=0.3,
-    )
+    kwargs: dict[str, Any] = {"model": model, "messages": messages, "temperature": 0.3}
+    if tools:
+        kwargs["tools"] = tools
+    resp = await client.chat.completions.create(**kwargs)
     latency_ms = int((time.perf_counter() - t0) * 1000)
     usage = getattr(resp, "usage", None)
     try:
@@ -123,4 +187,4 @@ async def _complete(messages: list[dict[str, str]]) -> str:
         )
     except Exception:
         logger.warning("failed to audit chat call", exc_info=True)
-    return resp.choices[0].message.content or ""
+    return resp
