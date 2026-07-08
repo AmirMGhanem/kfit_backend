@@ -18,12 +18,14 @@ from typing import Any
 from sqlalchemy import String, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.database import AsyncSessionLocal
 from app.models.calculation import Calculation
 from app.models.client import Client
 from app.models.knowledge import KnowledgeDocument
 from app.models.meal import Meal
 from app.models.meal_plan import MealPlan, MealPlanItem
 from app.models.submission import Submission
+from app.services import notifications as notifications_service
 from app.services.chat_assistant.client_context import load_client_context
 
 MAX_ROWS = 50
@@ -259,6 +261,48 @@ async def recent_activity(session: AsyncSession, days: int = 7) -> dict[str, Any
     }
 
 
+async def create_alert(
+    _session: AsyncSession,
+    *,
+    title: str,
+    body: str | None = None,
+    severity: str = "warning",
+    type: str = "ai_insight",
+    client_id: str | None = None,
+    dedup_key: str | None = None,
+) -> dict[str, Any]:
+    """Raise an alert/notification to the clinic staff. The one WRITE tool.
+
+    Persists on its own session/commit so the alert survives regardless of the
+    chat transaction, and broadcasts to all active staff. ``dedup_key`` collapses
+    repeats so the same alert isn't raised twice.
+    """
+    cid: uuid.UUID | None = None
+    if client_id:
+        try:
+            cid = uuid.UUID(client_id)
+        except (ValueError, TypeError):
+            cid = None
+    async with AsyncSessionLocal() as session:
+        notification = await notifications_service.create_notification(
+            session,
+            type=type,
+            title=title,
+            body=body,
+            severity=severity,
+            client_id=cid,
+            source="ai_assistant",
+            dedup_key=dedup_key,
+        )
+        await session.commit()
+        return {
+            "created": True,
+            "notification_id": str(notification.id),
+            "severity": notification.severity,
+            "title": notification.title,
+        }
+
+
 # ── Registry ────────────────────────────────────────────────────────────────
 _TOOLS: list[Tool] = [
     Tool(
@@ -363,13 +407,47 @@ _TOOLS: list[Tool] = [
         },
         recent_activity,
     ),
+    Tool(
+        "create_alert",
+        "Raise an ALERT/notification to the clinic staff about something that needs "
+        "attention — e.g. a client at churn risk, losing motivation, or a weight "
+        "plateau. Use it ONCE when you identify something actionable, and pass a "
+        "stable dedup_key (e.g. 'churn:<client_id>') so the same alert isn't raised "
+        "twice. In a client-scoped chat it attaches to that client automatically.",
+        {
+            "type": "object",
+            "properties": {
+                "title": {"type": "string", "description": "short alert headline"},
+                "body": {
+                    "type": "string",
+                    "description": "1-2 sentences: the detail and recommended action",
+                },
+                "severity": {
+                    "type": "string",
+                    "enum": ["info", "warning", "critical"],
+                },
+                "type": {
+                    "type": "string",
+                    "description": "category, e.g. churn_risk / low_motivation / "
+                    "weight_plateau / ai_insight",
+                },
+                "dedup_key": {
+                    "type": "string",
+                    "description": "stable key to prevent duplicate alerts",
+                },
+                "client_id": {"type": "string"},
+            },
+            "required": ["title"],
+        },
+        create_alert,
+    ),
 ]
 
 _BY_NAME: dict[str, Tool] = {t.name: t for t in _TOOLS}
 
 # Tools that operate on "the current client" — default their client_id to the
 # client the chat is scoped to when the model doesn't pass one.
-_CLIENT_DEFAULT_TOOLS = {"get_meal_plan", "get_client_details"}
+_CLIENT_DEFAULT_TOOLS = {"get_meal_plan", "get_client_details", "create_alert"}
 
 
 def openai_tools() -> list[dict[str, Any]]:
