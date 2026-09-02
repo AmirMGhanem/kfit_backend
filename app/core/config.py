@@ -22,6 +22,13 @@ class Settings(BaseSettings):
     # CORS — JSON array in env (e.g. '["http://localhost:3000","https://kfit.tech"]')
     CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:4000"]
 
+    # Make.com webhook — fired (fire-and-forget) on every new submission.
+    # Overridable via env; empty URL disables it.
+    SUBMISSION_WEBHOOK_URL: str = (
+        "https://hook.eu2.make.com/iemzkzvzjlf0szjatkkmjb6uiknayj1f"
+    )
+    SUBMISSION_WEBHOOK_APIKEY: str = "onboarding-kfit666"
+
     # OpenAI / LLM (meal-planner agent). Empty until wired; the pipeline only
     # reads these when an LLM client is constructed.
     OPENAI_API_KEY: str = ""
