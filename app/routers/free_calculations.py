@@ -49,6 +49,7 @@ class FreeCalculationCreate(BaseModel):
     work_type: Literal["daily", "partial", "none"]
     goal: Literal["weight_loss", "muscle_gain"]
     training_types: list[TrainingIn] = Field(min_length=1)
+    skinny_fat: bool = False
 
 
 class FreeCalculationOut(BaseModel):
@@ -107,6 +108,7 @@ async def create_free_calculation(
             training_types=[
                 TrainingInput(**t.model_dump()) for t in body.training_types
             ],
+            skinny_fat=body.skinny_fat,
         )
     )
 

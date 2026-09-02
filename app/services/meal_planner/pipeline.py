@@ -28,7 +28,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.meal_planner import config
 from app.services.meal_planner.llm.base import LLMClient
-from app.services.meal_planner.schemas import PlanOutcome
+from app.services.meal_planner.schemas import (
+    MealProposal,
+    PlanOutcome,
+    PlanTargets,
+    ValidationResult,
+)
 from app.services.meal_planner.steps.step_01_build_context import build_context
 from app.services.meal_planner.steps.step_02_propose import propose
 from app.services.meal_planner.steps.step_03_validate import validate
@@ -40,6 +45,61 @@ from app.services.meal_planner.steps.step_05_persist import (
 from app.services.meal_planner.trace import calculation_id_var
 
 logger = logging.getLogger(__name__)
+
+# One (proposal, validation result, model) triple produced by one attempt of
+# the propose→validate→repair loop.
+Candidate = tuple[MealProposal, ValidationResult, str]
+
+
+# ── Pure, unit-testable decision logic (no I/O, no LLM) ─────────────────────
+def drift_for(day_total: int, targets: PlanTargets) -> int:
+    """0 if ``day_total`` lands in [min, max]; else the distance to the
+    nearer edge of the window."""
+    if targets.min_calories <= day_total <= targets.max_calories:
+        return 0
+    return min(
+        abs(day_total - targets.min_calories),
+        abs(day_total - targets.max_calories),
+    )
+
+
+def build_drift_note(day_total: int, targets: PlanTargets) -> str:
+    """One-line, English explanation for a best-effort (drifted) plan."""
+    edge = (
+        targets.min_calories
+        if day_total < targets.min_calories
+        else targets.max_calories
+    )
+    diff = day_total - edge
+    sign = "+" if diff > 0 else ""
+    return (
+        "No meal combination matched the target exactly — shipped the "
+        f"closest available: day {day_total} kcal vs target "
+        f"{targets.min_calories}-{targets.max_calories} ({sign}{diff} kcal)."
+    )
+
+
+def select_best_candidate(
+    candidates: list[Candidate], targets: PlanTargets
+) -> Candidate | None:
+    """Pick the structurally-valid candidate with the least calorie drift.
+
+    A candidate is structurally valid when ``result.structural_errors`` is
+    empty — regardless of any remaining calorie_errors. Ties keep the first
+    (earliest-attempted) candidate. Returns ``None`` if no candidate is
+    structurally valid.
+    """
+    best: Candidate | None = None
+    best_drift: int | None = None
+    for candidate in candidates:
+        _, result, _ = candidate
+        if result.structural_errors:
+            continue
+        drift = drift_for(result.day_total, targets)
+        if best is None or drift < best_drift:  # type: ignore[operator]
+            best = candidate
+            best_drift = drift
+    return best
 
 
 async def run_pipeline(
@@ -91,6 +151,7 @@ async def run_pipeline(
     )
 
     attempts = 1
+    candidates: list[Candidate] = [(proposal, result, builder_model)]
     while not result.ok and attempts <= config.MAX_REPAIR_ATTEMPTS:
         logger.info(
             "repair %d model=%s reason=%s", attempts + 1, repair_model, result.errors
@@ -106,6 +167,7 @@ async def run_pipeline(
             result.total_calories,
             result.errors,
         )
+        candidates.append((proposal, result, repair_model))
         attempts += 1
 
     # attempts == 1 means the builder's first proposal shipped; anything more
@@ -123,5 +185,30 @@ async def run_pipeline(
         return await persist_success(
             session, ctx, proposal, result, final_model, attempts
         )
+
+    best = select_best_candidate(candidates, ctx.targets)
+    if best is not None:
+        best_proposal, best_result, best_model = best
+        drift = drift_for(best_result.day_total, ctx.targets)
+        # Only annotate a plan whose DAY total fell outside the range. An
+        # in-range day total is valid even if per-meal bands weren't all met
+        # exactly — no note in that case.
+        note = (
+            build_drift_note(best_result.day_total, ctx.targets) if drift > 0 else None
+        )
+        logger.info(
+            "meal-plan READY (drift=%d) total=%d protein=%d model=%s attempts=%d "
+            "note=%r",
+            drift,
+            best_result.total_calories,
+            best_result.total_protein_calories,
+            best_model,
+            attempts,
+            note,
+        )
+        return await persist_success(
+            session, ctx, best_proposal, best_result, best_model, attempts, note=note
+        )
+
     logger.warning("meal-plan FAILED attempts=%d errors=%s", attempts, result.errors)
     return await persist_failure(session, ctx, result, final_model, attempts)

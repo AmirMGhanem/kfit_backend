@@ -67,6 +67,9 @@ class MealPlan(Base, UUIDPKMixin, CreatedAtMixin, UpdatedAtMixin):
     total_protein_calories: Mapped[int | None] = mapped_column(Integer, nullable=True)
     model: Mapped[str | None] = mapped_column(String, nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Set when a best-effort plan ships with calorie drift instead of an exact
+    # match (never for a structurally invalid plan — that still fails).
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     items: Mapped[list["MealPlanItem"]] = relationship(
         "MealPlanItem",

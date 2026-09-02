@@ -26,8 +26,11 @@ async def persist_success(
     result: ValidationResult,
     model: str,
     attempts: int,
+    note: str | None = None,
 ) -> PlanOutcome:
-    plan_id = await repository.save_ready_plan(session, ctx, proposal, result, model)
+    plan_id = await repository.save_ready_plan(
+        session, ctx, proposal, result, model, note=note
+    )
     return PlanOutcome(
         status="ready",
         meal_plan_id=plan_id,

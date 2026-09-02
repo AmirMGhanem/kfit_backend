@@ -30,70 +30,80 @@ def validate(ctx: PlanContext, proposal: MealProposal) -> ValidationResult:
     index = ctx.candidate_index()
     t = ctx.targets
     tol = t.tolerance
-    errors: list[str] = []
+    structural_errors: list[str] = []
+    calorie_errors: list[str] = []
 
-    # 1. Every picked id must exist in the catalog.
+    # 1. Every picked id must exist in the catalog. STRUCTURAL.
     for p in proposal.picks:
         if p.meal_id not in index:
-            errors.append(f"meal_id {p.meal_id} is not in the catalog")
+            structural_errors.append(f"meal_id {p.meal_id} is not in the catalog")
 
     known = [p for p in proposal.picks if p.meal_id in index]
     by_pos: dict[int, MealCandidate] = {p.position: index[p.meal_id] for p in known}
     meals = [index[p.meal_id] for p in known]
 
-    # 2. Composition: main count + snack rule.
+    # 2. Composition: main count + snack rule. STRUCTURAL.
     mains = [m for m in meals if m.meal_type == "generic"]
     snacks = [m for m in meals if m.meal_type == "snack"]
     if len(mains) != t.meals_count:
-        errors.append(
+        structural_errors.append(
             f"expected {t.meals_count} main (generic) meal(s), got {len(mains)}"
         )
     expected_snacks = 1 if t.include_snack else 0
     if len(snacks) != expected_snacks:
-        errors.append(f"expected {expected_snacks} snack meal(s), got {len(snacks)}")
+        structural_errors.append(
+            f"expected {expected_snacks} snack meal(s), got {len(snacks)}"
+        )
 
-    # 3. Distinct positions.
+    # 3. Distinct positions. STRUCTURAL.
     positions = [p.position for p in known]
     if len(set(positions)) != len(positions):
-        errors.append("duplicate positions in picks")
+        structural_errors.append("duplicate positions in picks")
 
     snack_cal = sum(m.calories for m in snacks)
     big_pos = t.big_meal_position
 
     # 4. Per-meal calorie bands (R2), snack folded into the big meal (R6).
+    #    A missing meal at a position is STRUCTURAL; a band miss is CALORIE.
     for pos, target in t.meal_targets.items():
         meal = by_pos.get(pos)
         if meal is None:
-            errors.append(f"missing meal at position {pos}")
+            structural_errors.append(f"missing meal at position {pos}")
             continue
         got = meal.calories + (snack_cal if pos == big_pos else 0)
         label = "big" if pos == big_pos else f"meal {pos}"
         if not (target - tol <= got <= target + tol):
             plus = " + snack" if pos == big_pos and snack_cal else ""
-            errors.append(
+            calorie_errors.append(
                 f"{label} calories {got}{plus} outside "
                 f"{target}±{tol} ({target - tol}-{target + tol})"
             )
 
-    # 5. The big meal must carry a built-in fat source (R5).
+    # 5. The big meal must carry a built-in fat source (R5). STRUCTURAL.
     if big_pos is not None:
         big = by_pos.get(big_pos)
         if big is not None and not big.has_fat_source:
-            errors.append(f"big meal (position {big_pos}) must contain a fat source")
+            structural_errors.append(
+                f"big meal (position {big_pos}) must contain a fat source"
+            )
 
-    # 6. Whole day: meals + snack + free calories within the window.
+    # 6. Whole day: meals + snack + free calories within the window. CALORIE.
     meals_total = sum(m.calories for m in meals)
     day_total = meals_total + t.free_calories
     if meals and not (t.min_calories <= day_total <= t.max_calories):
-        errors.append(
+        calorie_errors.append(
             f"day total {day_total} (meals {meals_total} + free {t.free_calories}) "
             f"outside [{t.min_calories}, {t.max_calories}]"
         )
 
     total_protein = sum(m.protein_calories or 0 for m in meals)
+    errors = structural_errors + calorie_errors
     return ValidationResult(
         ok=not errors,
         errors=errors,
+        structural_errors=structural_errors,
+        calorie_errors=calorie_errors,
         total_calories=meals_total,
         total_protein_calories=total_protein,
+        day_total=day_total,
     )

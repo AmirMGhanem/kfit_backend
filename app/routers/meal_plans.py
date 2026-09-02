@@ -76,6 +76,7 @@ class MealPlanOut(BaseModel):
     total_calories: int | None
     total_protein_calories: int | None
     model: str | None
+    note: str | None
     created_at: str
 
 
@@ -101,6 +102,7 @@ def _summary(p: MealPlan) -> MealPlanOut:
         total_calories=p.total_calories,
         total_protein_calories=p.total_protein_calories,
         model=p.model,
+        note=p.note,
         created_at=p.created_at.isoformat(),
     )
 
