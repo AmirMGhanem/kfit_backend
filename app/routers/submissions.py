@@ -11,6 +11,7 @@ from app.core.deps import require_staff
 from app.services.submission_analyzer import repository as insight_repo
 from app.services.submission_analyzer import run_analysis
 from app.services.submissions import create_onboarding_submission
+from app.services.webhooks import notify_new_submission
 
 router = APIRouter(prefix="/api/submissions", tags=["submissions"])
 
@@ -64,6 +65,10 @@ async def submit_onboarding(
     # Fire-and-forget: analyze the submission for welcome-call notes after the
     # response is sent, so the client's submit stays instant.
     background_tasks.add_task(run_analysis, submission_id)
+    # Fire-and-forget: notify the Make.com scenario of the new submission.
+    background_tasks.add_task(
+        notify_new_submission, str(body.answers.get("phone") or "")
+    )
     return OnboardingSubmissionOut(
         submission_id=submission_id,
         client_id=client_id,
