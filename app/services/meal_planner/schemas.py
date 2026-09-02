@@ -87,12 +87,21 @@ class MealProposal(BaseModel):
 
 # ── Deterministic validation output ─────────────────────────────────────────
 class ValidationResult(BaseModel):
-    """Verdict + computed totals. Totals are authoritative (computed in code)."""
+    """Verdict + computed totals. Totals are authoritative (computed in code).
+
+    ``errors`` stays the union of ``structural_errors`` (must always fail —
+    unknown ids, wrong composition, duplicate positions, a missing meal, a
+    missing fat source) and ``calorie_errors`` (soft — per-meal band misses,
+    the whole-day window miss). ``ok`` is unchanged: ``not errors``.
+    """
 
     ok: bool
     errors: list[str] = Field(default_factory=list)
+    structural_errors: list[str] = Field(default_factory=list)
+    calorie_errors: list[str] = Field(default_factory=list)
     total_calories: int = 0
     total_protein_calories: int = 0
+    day_total: int = 0
 
 
 # ── Final result of a run ───────────────────────────────────────────────────

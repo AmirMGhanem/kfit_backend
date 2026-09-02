@@ -116,11 +116,16 @@ async def save_ready_plan(
     proposal: MealProposal,
     result: ValidationResult,
     model: str,
+    note: str | None = None,
 ) -> uuid.UUID:
     """Persist a validated plan + its items, status=ready. Returns the plan id.
 
     Appends the free-calorie allowance as the final plan item (R1) so the plan's
     total lands in the window: meals (daily − free) + free = daily.
+
+    ``note`` is set when this is a best-effort plan shipped with drift (never
+    structurally invalid) instead of an exact match — see step_03_validate and
+    pipeline.run_pipeline.
     """
     index = ctx.candidate_index()
     free_total = 0
@@ -135,6 +140,7 @@ async def save_ready_plan(
         status=MealPlanStatus.ready,
         total_protein_calories=result.total_protein_calories,
         model=model,
+        note=note,
     )
     max_pos = 0
     for pick in sorted(proposal.picks, key=lambda p: p.position):

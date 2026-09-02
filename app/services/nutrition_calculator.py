@@ -9,6 +9,7 @@ Exact-parity guarantees:
   - `bmr` is accepted by calorie-range computation but ignored, mirroring the
     original implementation quirk.
 """
+
 from math import floor
 from typing import Literal
 
@@ -49,6 +50,7 @@ class CalculatorInputs(BaseModel):
     work_type: WorkType
     goal: NutritionGoal
     training_types: list[TrainingInput]
+    skinny_fat: bool = False
 
 
 class CalculationResult(BaseModel):
@@ -74,9 +76,7 @@ def _apply_paf(bmr: float, work_type: WorkType) -> float:
     return bmr * PHYSICAL_ACTIVITY_FACTORS[work_type]
 
 
-def _training_calories(
-    training: TrainingInput, gender: Gender, weight: float
-) -> float:
+def _training_calories(training: TrainingInput, gender: Gender, weight: float) -> float:
     sessions = training.sessions
     if training.type == "aerobic":
         return (training.time / 10) * (sessions / 7) * weight
@@ -94,12 +94,14 @@ def _tee(
     gender: Gender,
     weight: float,
 ) -> float:
-    return baseline + sum(
-        _training_calories(t, gender, weight) for t in trainings
-    )
+    return baseline + sum(_training_calories(t, gender, weight) for t in trainings)
 
 
-def _calorie_range(tee: float, goal: NutritionGoal) -> tuple[float, float]:
+def _calorie_range(
+    tee: float, goal: NutritionGoal, skinny_fat: bool = False
+) -> tuple[float, float]:
+    if skinny_fat:
+        return tee * 0.9, tee * 0.95
     r = GOAL_RANGES[goal]
     return tee * r["min"], tee * r["max"]
 
@@ -109,7 +111,7 @@ def calculate(inputs: CalculatorInputs) -> CalculationResult:
     bmr = _bmr(inputs.weight, inputs.gender)
     bmr_paf = _apply_paf(bmr, inputs.work_type)
     tee = _tee(inputs.training_types, bmr_paf, inputs.gender, inputs.weight)
-    cmin, cmax = _calorie_range(tee, inputs.goal)
+    cmin, cmax = _calorie_range(tee, inputs.goal, inputs.skinny_fat)
     return CalculationResult(
         bmr=_js_round(bmr),
         bmr_with_paf=_js_round(bmr_paf),
