@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     # Two-model split: a fast model builds the first proposal; a stronger
     # reasoning model only runs on repair (rare — the validator gates it).
     OPENAI_BUILDER_MODEL: str = "gpt-4o"
-    OPENAI_REPAIR_MODEL: str = "o4-mini"
+    OPENAI_REPAIR_MODEL: str = "gpt-5-mini"
     # Submission analyzer (red flags / pain points / insights) — single call.
     OPENAI_ANALYZER_MODEL: str = "gpt-4o"
     # RAG knowledge base — embeddings + the consultant chat assistant.
