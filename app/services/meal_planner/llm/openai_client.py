@@ -4,7 +4,7 @@ OpenAI adapter — the concrete `LLMClient` for the meal planner.
 Isolates every provider quirk so the rest of the pipeline stays clean:
   • structured output via an internal string-id DTO (avoids UUID/strict-schema
     friction), then coerced to the core `MealProposal`;
-  • reasoning models (o1/o3/o4) take a "developer" role instead of "system" and
+  • reasoning models (o1/o3/o4/gpt-5) take a "developer" role instead of "system" and
     reject a custom temperature — handled here;
   • hallucinated non-UUID meal_ids are dropped (the validator then rejects the
     proposal and repair kicks in) rather than crashing the request.
@@ -68,7 +68,7 @@ async def _record(
 
 
 # Reasoning families: different role vocabulary + no temperature knob.
-_REASONING_PREFIXES = ("o1", "o3", "o4")
+_REASONING_PREFIXES = ("o1", "o3", "o4", "gpt-5")
 
 
 class _LLMPick(BaseModel):

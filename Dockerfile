@@ -6,7 +6,7 @@ COPY pyproject.toml .
 RUN pip install --no-cache-dir \
     "fastapi>=0.115.0" \
     "uvicorn[standard]>=0.34.0" \
-    "sqlalchemy>=2.0.40" \
+    "sqlalchemy[asyncio]>=2.0.40" \
     "alembic>=1.14.0" \
     "asyncpg>=0.30.0" \
     "pydantic>=2.11.0" \
