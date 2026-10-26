@@ -65,6 +65,8 @@ class PlanContext(BaseModel):
     calculation_id: uuid.UUID
     targets: PlanTargets
     candidates: list[MealCandidate]
+    # Free-text steer from the consultant (regenerate). None = no extra wishes.
+    consultant_note: str | None = None
 
     def candidate_index(self) -> dict[uuid.UUID, MealCandidate]:
         return {c.meal_id: c for c in self.candidates}

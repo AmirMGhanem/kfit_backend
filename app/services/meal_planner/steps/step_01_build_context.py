@@ -24,6 +24,7 @@ async def build_context(
     *,
     meals_count: int,
     include_snack: bool,
+    consultant_note: str | None = None,
 ) -> PlanContext:
     client_id, targets = await repository.fetch_targets(
         session,
@@ -37,4 +38,5 @@ async def build_context(
         calculation_id=calculation_id,
         targets=targets,
         candidates=candidates,
+        consultant_note=(consultant_note or "").strip() or None,
     )

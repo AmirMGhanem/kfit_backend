@@ -68,7 +68,7 @@ Client targets:
 {meal_plan_spec}
 Snack: {snack_word}
 {fruit_line}
-
+{consultant_block}
 Catalog (meal_id | kcal | protein_kcal | protein_g | fat_source | type | name):
 {catalog}
 
@@ -135,6 +135,22 @@ def _format_catalog(ctx: PlanContext) -> str:
     return "\n".join(lines)
 
 
+def _consultant_block(ctx: PlanContext) -> str:
+    """The consultant's free-text wishes for this regeneration.
+
+    Ranked above the client's routine/preferences and variety, but below the
+    hard rules (calorie bands, day window, fat source, composition), which the
+    validator enforces regardless.
+    """
+    if not ctx.consultant_note:
+        return ""
+    return (
+        "\nConsultant instructions for this plan (follow them as the top "
+        "preference — but never break the calorie targets or the rules above):\n"
+        f"{ctx.consultant_note}\n"
+    )
+
+
 def build_messages(ctx: PlanContext) -> list[Message]:
     t = ctx.targets
     spec = _meal_plan_spec(ctx)
@@ -150,6 +166,7 @@ def build_messages(ctx: PlanContext) -> list[Message]:
         meal_plan_spec=spec,
         snack_word="yes (one snack)" if t.include_snack else "no",
         fruit_line=_fruit_line(ctx),
+        consultant_block=_consultant_block(ctx),
         catalog=_format_catalog(ctx),
     )
     return [
