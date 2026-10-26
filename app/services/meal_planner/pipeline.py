@@ -109,6 +109,7 @@ async def run_pipeline(
     meals_count: int,
     include_snack: bool,
     llm: LLMClient,
+    consultant_note: str | None = None,
     builder_model: str | None = None,
     repair_model: str | None = None,
 ) -> PlanOutcome:
@@ -127,6 +128,7 @@ async def run_pipeline(
         calculation_id,
         meals_count=meals_count,
         include_snack=include_snack,
+        consultant_note=consultant_note,
     )
     logger.info(
         "meal-plan start calc=%s client=%s window=%d-%d meals=%d snack=%s catalog=%d",

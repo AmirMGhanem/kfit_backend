@@ -44,6 +44,8 @@ class GenerateMealPlanIn(BaseModel):
     include_snack: bool = False
     # Optional — defaults to the client's most recent calculation.
     calculation_id: uuid.UUID | None = None
+    # Optional free-text steer from the consultant ("big meal lighter, no fish").
+    consultant_note: str | None = Field(default=None, max_length=1000)
 
 
 class MealPlanItemOut(BaseModel):
@@ -77,6 +79,7 @@ class MealPlanOut(BaseModel):
     total_protein_calories: int | None
     model: str | None
     note: str | None
+    consultant_note: str | None = None
     created_at: str
 
 
@@ -103,6 +106,7 @@ def _summary(p: MealPlan) -> MealPlanOut:
         total_protein_calories=p.total_protein_calories,
         model=p.model,
         note=p.note,
+        consultant_note=p.consultant_note,
         created_at=p.created_at.isoformat(),
     )
 
@@ -189,6 +193,7 @@ async def generate_meal_plan(
             calc_id,
             meals_count=body.meals_count,
             include_snack=body.include_snack,
+            consultant_note=body.consultant_note,
             llm=llm,
         )
     except OpenAIError as exc:  # provider down / auth / rate limit

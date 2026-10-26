@@ -138,6 +138,7 @@ async def save_ready_plan(
         meals_count=ctx.targets.meals_count,
         include_snack=ctx.targets.include_snack,
         status=MealPlanStatus.ready,
+        consultant_note=ctx.consultant_note,
         total_protein_calories=result.total_protein_calories,
         model=model,
         note=note,
@@ -194,6 +195,7 @@ async def save_failed_plan(
         meals_count=ctx.targets.meals_count,
         include_snack=ctx.targets.include_snack,
         status=MealPlanStatus.failed,
+        consultant_note=ctx.consultant_note,
         model=model,
         error=error,
     )
